@@ -62,11 +62,34 @@
   .allday .dt{grid-template-columns:44px minmax(0,1fr)}
   .allday .tm{display:none}
   #untilBox .dt{grid-template-columns:64px minmax(0,1fr)}
-  .reps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .reps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
   .reps button{border:2px solid var(--line);background:var(--input);border-radius:10px;padding:10px 0;font-size:14px;font-weight:800;cursor:pointer}
   .reps button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
   .rpv{margin-top:10px;font-size:13px;font-weight:800;color:var(--green)}
   .rpv.bad{color:var(--red)}
+  /* タブ・マイ予定 */
+  .ltabs{display:grid;grid-template-columns:1fr 1fr;background:var(--chip);border-radius:12px;padding:4px;margin-bottom:14px;position:sticky;top:8px;z-index:5}
+  .ltabs button{border:0;background:transparent;color:var(--sub);font-size:15px;font-weight:800;padding:10px 0;border-radius:9px;cursor:pointer}
+  .ltabs button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .sh{font-size:14px;font-weight:800;margin:16px 2px 8px}
+  .mc{display:flex;background:var(--surface);border-radius:14px;margin-bottom:8px;overflow:hidden}
+  .mc .bar{width:6px;flex:none}
+  .mc .bd{padding:12px 14px;flex:1;min-width:0}
+  .mc .tm{font-size:13px;font-weight:800}
+  .mc .tt{font-size:16px;font-weight:800;margin-top:2px;word-break:break-all}
+  .mc .mt{font-size:12px;color:var(--sub);margin-top:4px}
+  .mc .ac{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .sb{border:1.5px solid var(--line);background:var(--input);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer}
+  .sb.yes{border-color:var(--green);background:var(--green);color:#fff}
+  .sb.no,.sb.del{border-color:var(--red);color:var(--red)}
+  .sb.no.on{background:var(--red);color:#fff}
+  .empty{font-size:13px;color:var(--sub);background:var(--surface);border-radius:14px;padding:14px;opacity:.8}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .modal.on{display:flex}
+  .sheet{background:var(--surface);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+  .sheet h3{font-size:16px;margin-bottom:12px;text-align:center}
+  .sheet button{display:block;width:100%;border:0;background:var(--chip);border-radius:12px;padding:14px;font-size:15px;font-weight:800;margin-top:8px;cursor:pointer}
+  .sheet button.danger{background:var(--red);color:#fff}
   .done{background:var(--surface);border-radius:16px;padding:22px 18px;text-align:center}
   .done .big{font-size:40px}
   .done h2{font-size:19px;margin:6px 0 14px}
@@ -79,6 +102,11 @@
 
 <!-- 読み込み中 -->
 <section class="screen on" id="s-load"><div class="center" id="loadMsg">読み込み中…</div></section>
+
+<div class="ltabs" id="ltabs" style="display:none">
+  <button data-t="form" class="on">＋ 予定を登録</button>
+  <button data-t="mine">📋 マイ予定</button>
+</div>
 
 <!-- 初回：あなたはだれ？ -->
 <section class="screen" id="s-link">
@@ -95,7 +123,7 @@
 
 <!-- 予定を登録 -->
 <section class="screen" id="s-form">
-  <h1>予定を登録</h1>
+  <h1 id="formTitle">予定を登録</h1>
   <div class="who"><img id="pic2" alt=""><div><small>登録者（LINEから自動）</small><b id="meName"></b></div></div>
 
   <div class="field" id="schedField">
@@ -104,12 +132,13 @@
     <div class="dt"><span class="dl">開始</span><input type="date" class="inp" id="fDate"><input type="time" class="inp tm" id="fStart" value="14:00" step="900"></div>
     <div class="dt"><span class="dl">終了</span><input type="date" class="inp" id="fEndDate"><input type="time" class="inp tm" id="fEnd" value="15:00" step="900"></div>
   </div>
-  <div class="field">
+  <div class="field" id="repField">
     <label>繰り返し<i>任意</i></label>
     <div class="reps" id="fRepeat">
       <button type="button" data-r="none" class="on">なし</button>
       <button type="button" data-r="weekly">毎週</button>
       <button type="button" data-r="biweekly">隔週</button>
+      <button type="button" data-r="monthly">毎月</button>
     </div>
     <div id="untilBox" style="display:none">
       <div class="dt"><span class="dl">いつまで</span><input type="date" class="inp" id="fUntil"></div>
@@ -137,6 +166,10 @@
     <input type="text" class="inp" id="fPlace" placeholder="例）本社／Zoom">
   </div>
   <div class="field">
+    <label>URL・資料リンク<i>任意</i></label>
+    <input type="url" class="inp" id="fUrl" placeholder="https://〜（企画書・Zoom・地図など）">
+  </div>
+  <div class="field">
     <label>メモ<i>任意</i></label>
     <textarea class="inp" id="fMemo" placeholder="持ち物・集合時間など"></textarea>
   </div>
@@ -144,11 +177,20 @@
   <div class="err" id="fErr"></div>
 </section>
 
+<!-- マイ予定 -->
+<section class="screen" id="s-mine">
+  <h1>マイ予定</h1>
+  <div class="sh">🙋 担当になっている予定（出欠を返してください）</div>
+  <div id="assignedList"></div>
+  <div class="sh">✏️ 自分が登録した予定（変更・削除できます）</div>
+  <div id="mineList"></div>
+</section>
+
 <!-- 登録完了 -->
 <section class="screen" id="s-done">
   <div class="done">
     <div class="big">✅</div>
-    <h2>登録しました</h2>
+    <h2 id="doneTitle">登録しました</h2>
     <div class="card" id="doneCard"></div>
     <div class="warn" id="doneWarn"></div>
   </div>
@@ -156,6 +198,8 @@
   <button class="sub2" id="listBtn">📅 予定一覧を見る</button>
   <button class="sub2" id="closeBtn">閉じる</button>
 </section>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
 
 <script>
 // ===== 設定 =====
@@ -167,7 +211,13 @@ const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,"0");
 const W=["日","月","火","水","木","金","土"];
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function show(name){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id==="s-"+name));window.scrollTo(0,0);}
+function show(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id==="s-"+name));
+  const tabbed=name==="form"||name==="mine";
+  $("ltabs").style.display=tabbed?"":"none";
+  document.querySelectorAll("#ltabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===name));
+  window.scrollTo(0,0);
+}
 function fail(msg){$("loadMsg").innerHTML="⚠️ "+esc(msg);show("load");}
 
 let DATA=null, PROFILE=null, fGenre=null, fPeople=new Set();
@@ -176,8 +226,10 @@ let DATA=null, PROFILE=null, fGenre=null, fPeople=new Set();
 const MAX_REPEAT=52;
 let fAllDay=false, fRepeat="none", endTouched=false;
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const hhmm=d=>`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 const parseYmd=s=>{const[Y,M,D]=s.split("-").map(Number);return new Date(Y,M-1,D);};
 const WD=["日","月","火","水","木","金","土"];
+const REP_LABEL={weekly:"毎週",biweekly:"隔週",monthly:"毎月"};
 function schedDefaults(){
   const t=new Date();t.setDate(t.getDate()+1);
   if(!$("fDate").value) $("fDate").value=ymd(t);
@@ -187,34 +239,45 @@ function repDates(){
   const ds=$("fDate").value; if(!ds) return [];
   const first=parseYmd(ds); if(fRepeat==="none") return [first];
   const us=$("fUntil").value; if(!us) return [first];
-  const until=parseYmd(us), step=fRepeat==="weekly"?7:14, out=[];
-  for(let d=new Date(first);d<=until&&out.length<=MAX_REPEAT;d.setDate(d.getDate()+step)) out.push(new Date(d));
+  const until=parseYmd(us), out=[];
+  if(fRepeat==="monthly"){
+    const D=first.getDate();
+    for(let k=0;out.length<=MAX_REPEAT;k++){
+      const y=first.getFullYear(),m=first.getMonth()+k,dim=new Date(y,m+1,0).getDate();
+      const d=new Date(y,m,Math.min(D,dim)); if(d>until) break; out.push(d);
+    }
+  }else{
+    const step=fRepeat==="weekly"?7:14;
+    for(let d=new Date(first);d<=until&&out.length<=MAX_REPEAT;d.setDate(d.getDate()+step)) out.push(new Date(d));
+  }
   return out;
 }
 function repPreview(){
   const el=$("repPrev"); if(fRepeat==="none"){el.textContent="";return;}
   const list=repDates(); if(!$("fUntil").value||!list.length){el.textContent="";return;}
-  const last=list[list.length-1];
-  const over=list.length>MAX_REPEAT;
+  const last=list[list.length-1], over=list.length>MAX_REPEAT;
+  const when=fRepeat==="monthly"?`毎月${list[0].getDate()}日`:`${REP_LABEL[fRepeat]}${WD[list[0].getDay()]}曜`;
   el.classList.toggle("bad",over);
   el.textContent=over?`⚠️ 最大${MAX_REPEAT}回までです。「いつまで」を短くしてください`
-    :`🔁 ${fRepeat==="weekly"?"毎週":"隔週"}${WD[list[0].getDay()]}曜・全${list.length}回（最終 ${last.getMonth()+1}/${last.getDate()}）`;
+    :`🔁 ${when}・全${list.length}回（最終 ${last.getMonth()+1}/${last.getDate()}）`;
+}
+function setAllDay(on){fAllDay=on;$("fAllDay").classList.toggle("on",on);$("schedField").classList.toggle("allday",on);}
+function setRepeat(r){
+  fRepeat=r;
+  $("fRepeat").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x.dataset.r===r));
+  $("untilBox").style.display=r==="none"?"none":"";
+  if(r!=="none"&&!$("fUntil").value&&$("fDate").value){const u=parseYmd($("fDate").value);u.setMonth(u.getMonth()+3);$("fUntil").value=ymd(u);}
+  repPreview();
 }
 function schedInit(){
   schedDefaults();
-  $("fAllDay").onclick=()=>{fAllDay=!fAllDay;$("fAllDay").classList.toggle("on",fAllDay);$("schedField").classList.toggle("allday",fAllDay);};
+  $("fAllDay").onclick=()=>setAllDay(!fAllDay);
   $("fDate").addEventListener("change",()=>{
     if(!endTouched||!$("fEndDate").value||$("fEndDate").value<$("fDate").value) $("fEndDate").value=$("fDate").value;
     repPreview();
   });
   $("fEndDate").addEventListener("change",()=>{endTouched=true;});
-  $("fRepeat").querySelectorAll("button").forEach(b=>b.onclick=()=>{
-    fRepeat=b.dataset.r;
-    $("fRepeat").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
-    $("untilBox").style.display=fRepeat==="none"?"none":"";
-    if(fRepeat!=="none"&&!$("fUntil").value&&$("fDate").value){const u=parseYmd($("fDate").value);u.setMonth(u.getMonth()+3);$("fUntil").value=ymd(u);}
-    repPreview();
-  });
+  $("fRepeat").querySelectorAll("button").forEach(b=>b.onclick=()=>setRepeat(b.dataset.r));
   $("fUntil").addEventListener("change",repPreview);
 }
 function schedValues(){
@@ -237,11 +300,20 @@ function schedCheck(f){
   return "";
 }
 function schedReset(){
-  fRepeat="none";endTouched=false;fAllDay=false;$("fAllDay").classList.remove("on");$("schedField").classList.remove("allday");
-  $("fRepeat").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x.dataset.r==="none"));
-  $("untilBox").style.display="none";$("fUntil").value="";repPreview();
+  endTouched=false;setAllDay(false);$("fUntil").value="";setRepeat("none");
   $("fEndDate").value=$("fDate").value;
 }
+// 予定の日時をフォームに入れる（変更・コピー用）
+function schedFill(e){
+  const s=new Date(e.start),en=new Date(e.end);
+  $("fDate").value=ymd(s);
+  if(e.allDay){$("fEndDate").value=ymd(new Date(en.getTime()-1));}
+  else{$("fEndDate").value=ymd(en);$("fStart").value=hhmm(s);$("fEnd").value=hhmm(en);}
+  endTouched=$("fEndDate").value!==$("fDate").value;
+  setAllDay(!!e.allDay);$("fUntil").value="";setRepeat("none");
+}
+// 変更のときは繰り返しの欄を隠す
+function schedEditMode(on){$("repField").style.display=on?"none":"";}
 // 表示用：「14:00〜15:00」「終日」「10/5〜10/7 終日」など
 function schedLabel(f){
   const s=parseYmd(f.date),e=parseYmd(f.endDate||f.date),md=d=>`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
@@ -280,12 +352,29 @@ $("linkBtn").onclick=async()=>{
   const id=$("linkSel").value;
   if(!id){$("linkErr").textContent="名前を選んでください";return;}
   $("linkBtn").disabled=true;$("linkErr").textContent="";
-  try{DATA=await api("link",{personId:id});renderForm();}
+  try{DATA=await api("link",{personId:id});openForm(null,"new");}
   catch(e){$("linkErr").textContent="⚠️ "+e.message;}
   finally{$("linkBtn").disabled=false;}
 };
 
 // ===== 予定フォーム =====
+let EDIT=null;   // 変更中：{ id, scope }
+// mode = "new"（新規）／"copy"（コピーして新規）／"edit"（変更）
+function openForm(ev,mode,scope){
+  EDIT=mode==="edit"?{id:ev.id,scope:scope||"one"}:null;
+  $("formTitle").textContent=mode==="edit"?(scope==="after"?"予定を変更（この日以降すべて）":"予定を変更"):mode==="copy"?"コピーして登録":"予定を登録";
+  $("fSubmit").textContent=mode==="edit"?"変更する":"登録する";
+  $("fErr").textContent="";
+  schedEditMode(mode==="edit");
+  if(ev){
+    $("fTitle").value=ev.title;$("fPlace").value=ev.place||"";$("fMemo").value=ev.memo||"";$("fUrl").value=ev.url||"";
+    fGenre=ev.cat;fPeople=new Set(ev.people);schedFill(ev);
+  }else if(mode==="new"){
+    $("fTitle").value="";$("fPlace").value="";$("fMemo").value="";$("fUrl").value="";fGenre=null;fPeople=new Set();schedReset();
+  }
+  renderForm();
+  if(ev&&[...$("fTeam").options].some(o=>o.value===ev.team)) $("fTeam").value=ev.team;
+}
 function renderForm(){
   $("meName").textContent=DATA.me.name;
   schedDefaults();
@@ -306,40 +395,114 @@ function renderPeople(){
 }
 $("fSubmit").onclick=async()=>{
   const f={...schedValues(),title:$("fTitle").value.trim(),
-    team:$("fTeam").value,cat:fGenre,people:[...fPeople],place:$("fPlace").value.trim(),memo:$("fMemo").value.trim()};
+    team:$("fTeam").value,cat:fGenre,people:[...fPeople],place:$("fPlace").value.trim(),memo:$("fMemo").value.trim(),
+    url:$("fUrl").value.trim()};
+  if(f.url&&!/^https?:\/\//i.test(f.url)){$("fErr").textContent="URLは http:// か https:// から入力してください";return;}
   const miss=[!f.title&&"タイトル",!f.team&&"チーム",!f.cat&&"ジャンル"].filter(Boolean);
   if(miss.length){$("fErr").textContent=`「${miss.join("」「")}」を入力してください`;return;}
   const sErr=schedCheck(f); if(sErr){$("fErr").textContent=sErr;return;}
-  $("fErr").textContent="";$("fSubmit").disabled=true;$("fSubmit").textContent="登録中…";
+  const editing=EDIT;
+  $("fErr").textContent="";$("fSubmit").disabled=true;$("fSubmit").textContent=editing?"変更中…":"登録中…";
   try{
-    const r=await api("save",{form:f});
+    const r=editing?await api("update",{id:editing.id,form:f,scope:editing.scope}):await api("save",{form:f});
+    EDIT=null;
+    $("doneTitle").textContent=editing?"変更しました":"登録しました";
     const g=DATA.genres.find(x=>x.key===f.cat)||{label:"",color:"#06c755"};
     const team=DATA.teams.find(t=>t.id===f.team)?.name||"";
     const ppl=f.people.map(id=>DATA.people.find(p=>p.id===id)?.name).filter(Boolean);
     $("doneCard").style.borderLeftColor=g.color;
-    const rep=f.repeat!=="none"?`<br>🔁 ${f.repeat==="weekly"?"毎週":"隔週"}・全${r.count}回（〜${esc(f.until.replace(/^\d+-0?(\d+)-0?(\d+)$/,"$1/$2"))}）`:"";
+    const rep=!editing&&f.repeat!=="none"?`<br>🔁 ${REP_LABEL[f.repeat]}・全${r.count}回（〜${esc(f.until.replace(/^\d+-0?(\d+)-0?(\d+)$/,"$1/$2"))}）`
+      :editing&&r.count>1?`<br>🔁 この日以降 ${r.count}件を変更`:"";
     $("doneCard").innerHTML=`📅 ${esc(schedLabel(f))}${rep}<br><b>${esc(f.title)}</b><br>
-      🏷️ ${esc(g.label)}　👥 ${esc(team)}${f.place?`<br>📍 ${esc(f.place)}`:""}${ppl.length?`<br>👤 ${esc(ppl.join("・"))}`:""}`;
+      🏷️ ${esc(g.label)}　👥 ${esc(team)}${f.place?`<br>📍 ${esc(f.place)}`:""}${ppl.length?`<br>👤 ${esc(ppl.join("・"))}`:""}${f.url?`<br>🔗 ${esc(f.url)}`:""}`;
     $("doneWarn").textContent=r&&r.warn?("⚠️ "+r.warn):"";
 
     // 開いたトーク（公式アカウントとのトーク／グループ）に登録内容を送る（通数はかからない）
     try{
       const ctx=liff.getContext();
       if(ctx&&["utou","group","room","square_chat"].includes(ctx.type)){
-        const lines=["📅 予定を登録しました","",schedLabel(f)];
-        if(f.repeat!=="none") lines.push(`🔁 ${f.repeat==="weekly"?"毎週":"隔週"}・全${r.count}回`);
+        const lines=[editing?"✏️ 予定を変更しました":"📅 予定を登録しました","",schedLabel(f)];
+        if(!editing&&f.repeat!=="none") lines.push(`🔁 ${REP_LABEL[f.repeat]}・全${r.count}回`);
+        if(editing&&r.count>1) lines.push(`🔁 この日以降 ${r.count}件`);
         lines.push(`【${g.label}】${f.title}`,`👥 ${team}`);
         if(f.place) lines.push(`📍 ${f.place}`);
         if(ppl.length) lines.push(`👤 ${ppl.join("・")}`);
+        if(f.url) lines.push(`🔗 ${f.url}`);
         await liff.sendMessages([{type:"text",text:lines.join("\n")}]);
       }
     }catch(e){ /* トークの外で開いたときなどは送らない */ }
-    $("fTitle").value="";$("fPlace").value="";$("fMemo").value="";fGenre=null;fPeople=new Set();schedReset();
+    $("fTitle").value="";$("fPlace").value="";$("fMemo").value="";$("fUrl").value="";fGenre=null;fPeople=new Set();schedReset();
     show("done");
   }catch(e){$("fErr").textContent="⚠️ "+e.message;}
-  finally{$("fSubmit").disabled=false;$("fSubmit").textContent="登録する";}
+  finally{$("fSubmit").disabled=false;$("fSubmit").textContent=EDIT?"変更する":"登録する";}
 };
-$("againBtn").onclick=()=>renderForm();
+$("againBtn").onclick=()=>openForm(null,"new");
+
+// ===== タブ =====
+document.querySelectorAll("#ltabs button").forEach(b=>b.onclick=()=>b.dataset.t==="mine"?loadMine():openForm(null,"new"));
+
+// ===== マイ予定 =====
+let MINE={assigned:[],mine:[]};
+function choose(title,options){
+  return new Promise(res=>{
+    $("sheet").innerHTML=`<h3>${esc(title)}</h3>`+options.map((o,i)=>`<button data-i="${i}" class="${o.danger?"danger":""}">${esc(o.label)}</button>`).join("")+`<button data-i="-1">キャンセル</button>`;
+    $("modal").classList.add("on");
+    const close=v=>{$("modal").classList.remove("on");res(v);};
+    $("sheet").querySelectorAll("button").forEach(b=>b.onclick=()=>{const i=+b.dataset.i;close(i<0?null:options[i].value);});
+    $("modal").onclick=ev=>{if(ev.target===$("modal"))close(null);};
+  });
+}
+function evLabel(e){
+  const s=new Date(e.start),en=new Date(e.end),md=d=>`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
+  if(e.allDay){const last=new Date(en.getTime()-1);return ymd(s)===ymd(last)?`${md(s)} 終日`:`${md(s)}〜${md(last)} 終日`;}
+  return ymd(s)===ymd(en)?`${md(s)} ${hhmm(s)}〜${hhmm(en)}`:`${md(s)} ${hhmm(s)}〜${md(en)} ${hhmm(en)}`;
+}
+function mcard(e,kind){
+  const g=DATA.genres.find(x=>x.key===e.cat)||{label:e.cat,color:"#9aa1ab"};
+  const team=DATA.teams.find(t=>t.id===e.team)?.name||"";
+  const my=(e.rsvp||{})[DATA.me.id];
+  const acts=kind==="assigned"
+    ?`<button class="sb ${my==="yes"?"yes":""}" data-rsvp="${esc(e.id)}" data-v="yes">⭕ 行ける</button><button class="sb no ${my==="no"?"on":""}" data-rsvp="${esc(e.id)}" data-v="no">❌ 行けない</button>`
+    :`<button class="sb" data-edit="${esc(e.id)}">✏️ 変更</button><button class="sb" data-copy="${esc(e.id)}">📋 コピー</button><button class="sb del" data-del="${esc(e.id)}">削除</button>`;
+  return `<div class="mc"><div class="bar" style="background:${esc(g.color)}"></div><div class="bd">
+    <div class="tm">${esc(evLabel(e))}${e.series?" 🔁":""}</div>
+    <div class="tt">${esc(e.title)}</div>
+    <div class="mt">🏷️ ${esc(g.label)}　👥 ${esc(team)}${e.place?`　📍 ${esc(e.place)}`:""}</div>
+    <div class="ac">${acts}</div></div></div>`;
+}
+function renderMine(){
+  $("assignedList").innerHTML=MINE.assigned.length?MINE.assigned.map(e=>mcard(e,"assigned")).join(""):`<div class="empty">担当になっている予定はありません</div>`;
+  $("mineList").innerHTML=MINE.mine.length?MINE.mine.map(e=>mcard(e,"mine")).join(""):`<div class="empty">登録した予定はありません</div>`;
+  const find=id=>MINE.mine.find(x=>x.id===id)||MINE.assigned.find(x=>x.id===id);
+  document.querySelectorAll("[data-rsvp]").forEach(b=>b.onclick=async()=>{
+    const e=find(b.dataset.rsvp); const v=(e.rsvp||{})[DATA.me.id]===b.dataset.v?"":b.dataset.v;
+    b.disabled=true;
+    try{const r=await api("rsvp",{id:e.id,value:v});e.rsvp=r.rsvp;MINE.mine.concat(MINE.assigned).filter(x=>x.id===e.id).forEach(x=>x.rsvp=r.rsvp);renderMine();}
+    catch(err){alert(err.message);}
+  });
+  document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>openForm(find(b.dataset.copy),"copy"));
+  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=async()=>{
+    const e=find(b.dataset.edit);
+    const scope=e.series?await choose(`「${e.title}」は繰り返しの予定です`,[{label:"この日だけ変更",value:"one"},{label:"この日以降をすべて変更",value:"after"}]):"one";
+    if(scope) openForm(e,"edit",scope);
+  });
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+    const e=find(b.dataset.del);
+    const scope=e.series
+      ?await choose(`「${e.title}」は繰り返しの予定です`,[{label:"この日だけ削除",value:"one",danger:true},{label:"この日以降をすべて削除",value:"after",danger:true}])
+      :await choose(`「${e.title}」を削除しますか？`,[{label:"削除する",value:"one",danger:true}]);
+    if(!scope)return;
+    b.disabled=true;b.textContent="削除中…";
+    try{await api("delete",{id:e.id,scope});await loadMine();}
+    catch(err){alert(err.message);b.disabled=false;b.textContent="削除";}
+  });
+}
+async function loadMine(){
+  show("mine");
+  $("assignedList").innerHTML=$("mineList").innerHTML=`<div class="empty">読み込み中…</div>`;
+  try{MINE=await api("mine");renderMine();}
+  catch(e){$("assignedList").innerHTML=`<div class="empty">⚠️ ${esc(e.message)}</div>`;$("mineList").innerHTML="";}
+}
 $("listBtn").onclick=()=>{ try{liff.openWindow({url:GAS_URL,external:false});}catch(e){location.href=GAS_URL;} };
 $("closeBtn").onclick=()=>{ try{liff.closeWindow();}catch(e){} };
 
@@ -351,7 +514,9 @@ $("closeBtn").onclick=()=>{ try{liff.closeWindow();}catch(e){} };
     try{PROFILE=await liff.getProfile();}catch(e){}
     DATA=await api("init");
     setPic();
-    DATA.me?renderForm():renderLink();
+    if(!DATA.me) renderLink();
+    else if(new URLSearchParams(location.search).get("tab")==="mine") loadMine();   // ?tab=mine でマイ予定から開く
+    else openForm(null,"new");
   }catch(e){
     fail((e&&e.message)||"読み込みに失敗しました。LINEアプリから開き直してください");
   }
