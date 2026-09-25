@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>予定を登録｜Y-PU スケジュール</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{
+    --bg:#f4f5f7; --surface:#ffffff; --text:#1d1f23; --sub:#6b7280; --line:#e5e7eb;
+    --accent:#1f2937; --chip:#eef0f3; --input:#f7f8fa; --red:#e0413a; --green:#06c755;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#111317; --surface:#1b1e24; --text:#eef0f3; --sub:#9aa1ab; --line:#2a2e36;
+      --accent:#eef0f3; --chip:#252932; --input:#23272f; }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+    -webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;min-height:100vh;padding:16px 16px 40px}
+  button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+  .screen{display:none}.screen.on{display:block}
+  h1{font-size:20px;margin:4px 2px 14px}
+  .center{text-align:center;color:var(--sub);padding:60px 0;font-weight:700;line-height:1.8}
+
+  .who{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+  .who img,.who .ic{width:38px;height:38px;border-radius:50%;object-fit:cover;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+  .who small{display:block;color:var(--sub);font-size:11px}
+  .who b{font-size:15px}
+
+  .field{background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px}
+  .field label{display:block;font-size:13px;font-weight:800;margin-bottom:8px}
+  .field label em{font-style:normal;font-size:10px;color:#fff;background:var(--red);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+  .field label i{font-style:normal;font-size:10px;color:var(--sub);background:var(--chip);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+  .inp{width:100%;border:1.5px solid var(--line);background:var(--input);border-radius:10px;padding:11px 12px;font-size:16px}
+  .inp:focus{outline:none;border-color:var(--green)}
+  textarea.inp{min-height:70px;resize:vertical}
+  .times{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-top:8px}
+  .times span{color:var(--sub);font-weight:700}
+  .genres{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .gbtn{border:2px solid var(--line);background:var(--input);border-radius:10px;padding:12px 6px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+  .gbtn .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .gbtn.on{color:#fff}
+  .people{display:flex;flex-wrap:wrap;gap:6px}
+  .pbtn{border:1.5px solid var(--line);background:var(--input);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer}
+  .pbtn.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+  .submit{width:100%;border:0;background:var(--green);color:#fff;font-size:16px;font-weight:800;padding:16px;border-radius:14px;cursor:pointer;margin-top:6px}
+  .submit:disabled{opacity:.5}
+  .sub2{width:100%;border:1.5px solid var(--line);background:var(--surface);font-size:15px;font-weight:800;padding:14px;border-radius:14px;cursor:pointer;margin-top:8px}
+  .err{color:var(--red);font-size:13px;font-weight:700;text-align:center;min-height:20px;margin-top:8px;white-space:pre-wrap}
+  .hint{font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:12px}
+
+  .done{background:var(--surface);border-radius:16px;padding:22px 18px;text-align:center}
+  .done .big{font-size:40px}
+  .done h2{font-size:19px;margin:6px 0 14px}
+  .card{text-align:left;border-left:6px solid var(--green);background:var(--input);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.7}
+  .card b{font-size:16px}
+  .warn{margin-top:10px;font-size:12px;color:var(--red);font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- 読み込み中 -->
+<section class="screen on" id="s-load"><div class="center" id="loadMsg">読み込み中…</div></section>
+
+<!-- 初回：あなたはだれ？ -->
+<section class="screen" id="s-link">
+  <h1>はじめに</h1>
+  <div class="who"><img id="pic1" alt=""><div><small>LINEアカウント</small><b id="lineName1"></b></div></div>
+  <p class="hint">このLINEアカウントが誰なのかを1回だけ登録します。<br>次回からは自動で「登録者」に入ります。</p>
+  <div class="field">
+    <label>あなたの名前<em>必須</em></label>
+    <select class="inp" id="linkSel"></select>
+  </div>
+  <button class="submit" id="linkBtn">この名前で登録する</button>
+  <div class="err" id="linkErr"></div>
+</section>
+
+<!-- 予定を登録 -->
+<section class="screen" id="s-form">
+  <h1>予定を登録</h1>
+  <div class="who"><img id="pic2" alt=""><div><small>登録者（LINEから自動）</small><b id="meName"></b></div></div>
+
+  <div class="field">
+    <label>日程<em>必須</em></label>
+    <input type="date" class="inp" id="fDate">
+    <div class="times">
+      <input type="time" class="inp" id="fStart" value="14:00" step="900">
+      <span>〜</span>
+      <input type="time" class="inp" id="fEnd" value="15:00" step="900">
+    </div>
+  </div>
+  <div class="field">
+    <label>タイトル<em>必須</em></label>
+    <input type="text" class="inp" id="fTitle" placeholder="例）YPプロジェクト 定例MTG">
+  </div>
+  <div class="field">
+    <label>チーム<em>必須</em></label>
+    <select class="inp" id="fTeam"></select>
+  </div>
+  <div class="field">
+    <label>ジャンル<em>必須</em></label>
+    <div class="genres" id="fGenre"></div>
+  </div>
+  <div class="field">
+    <label>担当者<i>複数選べます・カレンダーに入ります</i></label>
+    <div class="people" id="fPeople"></div>
+  </div>
+  <div class="field">
+    <label>場所<i>任意</i></label>
+    <input type="text" class="inp" id="fPlace" placeholder="例）本社／Zoom">
+  </div>
+  <div class="field">
+    <label>メモ<i>任意</i></label>
+    <textarea class="inp" id="fMemo" placeholder="持ち物・集合時間など"></textarea>
+  </div>
+  <button class="submit" id="fSubmit">登録する</button>
+  <div class="err" id="fErr"></div>
+</section>
+
+<!-- 登録完了 -->
+<section class="screen" id="s-done">
+  <div class="done">
+    <div class="big">✅</div>
+    <h2>登録しました</h2>
+    <div class="card" id="doneCard"></div>
+    <div class="warn" id="doneWarn"></div>
+  </div>
+  <button class="submit" id="againBtn">続けて登録する</button>
+  <button class="sub2" id="listBtn">📅 予定一覧を見る</button>
+  <button class="sub2" id="closeBtn">閉じる</button>
+</section>
+
+<script>
+// ===== 設定 =====
+const LIFF_ID = "2011735296-uZ9FRGYG";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxSuKQhWmRD2OrDCrPli2B263rJyBXfyZTuePz6pThy1iIsw2nmMOmPZhNHf_QWdARrpg/exec";
+
+// ===== 共通 =====
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const W=["日","月","火","水","木","金","土"];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function show(name){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id==="s-"+name));window.scrollTo(0,0);}
+function fail(msg){$("loadMsg").innerHTML="⚠️ "+esc(msg);show("load");}
+
+let DATA=null, PROFILE=null, fGenre=null, fPeople=new Set();
+
+// Apps Script に送る（本人確認用のIDトークンを毎回付ける）
+async function api(action,extra){
+  const idToken=liff.getIDToken();
+  const res=await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action,idToken,...(extra||{})})});
+  const j=await res.json();
+  if(!j.ok) throw new Error(j.error||"エラーが発生しました");
+  return j.data;
+}
+
+function setPic(){
+  ["pic1","pic2"].forEach(id=>{
+    const img=$(id);
+    if(PROFILE&&PROFILE.pictureUrl){img.src=PROFILE.pictureUrl;}
+    else{const d=document.createElement("div");d.className="ic";d.textContent=(DATA?.me?.name||PROFILE?.displayName||"？").slice(0,1);img.replaceWith(d);}
+  });
+}
+
+// ===== 初回：名前の紐づけ =====
+function renderLink(){
+  $("lineName1").textContent=PROFILE?.displayName||DATA.lineName||"";
+  $("linkSel").innerHTML=`<option value="">選んでください</option>`+
+    DATA.people.map(p=>`<option value="${esc(p.id)}" ${p.linked?"disabled":""}>${esc(p.name)}${p.linked?"（登録済み）":""}</option>`).join("");
+  show("link");
+}
+$("linkBtn").onclick=async()=>{
+  const id=$("linkSel").value;
+  if(!id){$("linkErr").textContent="名前を選んでください";return;}
+  $("linkBtn").disabled=true;$("linkErr").textContent="";
+  try{DATA=await api("link",{personId:id});renderForm();}
+  catch(e){$("linkErr").textContent="⚠️ "+e.message;}
+  finally{$("linkBtn").disabled=false;}
+};
+
+// ===== 予定フォーム =====
+function renderForm(){
+  $("meName").textContent=DATA.me.name;
+  if(!$("fDate").value){const t=new Date();t.setDate(t.getDate()+1);$("fDate").value=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;}
+  const cur=$("fTeam").value;
+  $("fTeam").innerHTML=`<option value="">選んでください</option>`+DATA.teams.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+  if([...$("fTeam").options].some(o=>o.value===cur)) $("fTeam").value=cur;
+  renderGenres();renderPeople();show("form");
+}
+function renderGenres(){
+  $("fGenre").innerHTML=DATA.genres.map(g=>{const on=fGenre===g.key;
+    return `<button class="gbtn ${on?"on":""}" data-k="${esc(g.key)}" style="${on?`background:${esc(g.color)};border-color:${esc(g.color)}`:""}">
+      <span class="dot" style="background:${on?"#fff":esc(g.color)}"></span>${esc(g.label)}</button>`;}).join("");
+  $("fGenre").querySelectorAll(".gbtn").forEach(b=>b.onclick=()=>{fGenre=b.dataset.k;renderGenres();});
+}
+function renderPeople(){
+  $("fPeople").innerHTML=DATA.people.map(p=>`<button class="pbtn ${fPeople.has(p.id)?"on":""}" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join("");
+  $("fPeople").querySelectorAll(".pbtn").forEach(b=>b.onclick=()=>{const id=b.dataset.id;fPeople.has(id)?fPeople.delete(id):fPeople.add(id);renderPeople();});
+}
+$("fSubmit").onclick=async()=>{
+  const f={date:$("fDate").value,start:$("fStart").value,end:$("fEnd").value,title:$("fTitle").value.trim(),
+    team:$("fTeam").value,cat:fGenre,people:[...fPeople],place:$("fPlace").value.trim(),memo:$("fMemo").value.trim()};
+  const miss=[!f.date&&"日程",!f.title&&"タイトル",!f.team&&"チーム",!f.cat&&"ジャンル"].filter(Boolean);
+  if(miss.length){$("fErr").textContent=`「${miss.join("」「")}」を入力してください`;return;}
+  if(!f.start||!f.end||f.end<=f.start){$("fErr").textContent="終了時間は開始時間より後にしてください";return;}
+  $("fErr").textContent="";$("fSubmit").disabled=true;$("fSubmit").textContent="登録中…";
+  try{
+    const r=await api("save",{form:f});
+    const [Y,M,D]=f.date.split("-").map(Number);const wd=W[new Date(Y,M-1,D).getDay()];
+    const g=DATA.genres.find(x=>x.key===f.cat)||{label:"",color:"#06c755"};
+    const team=DATA.teams.find(t=>t.id===f.team)?.name||"";
+    const ppl=f.people.map(id=>DATA.people.find(p=>p.id===id)?.name).filter(Boolean);
+    $("doneCard").style.borderLeftColor=g.color;
+    $("doneCard").innerHTML=`📅 ${M}/${D}（${wd}）${esc(f.start)}〜${esc(f.end)}<br><b>${esc(f.title)}</b><br>
+      🏷️ ${esc(g.label)}　👥 ${esc(team)}${f.place?`<br>📍 ${esc(f.place)}`:""}${ppl.length?`<br>👤 ${esc(ppl.join("・"))}`:""}`;
+    $("doneWarn").textContent=r&&r.warn?("⚠️ "+r.warn):"";
+    $("fTitle").value="";$("fPlace").value="";$("fMemo").value="";fGenre=null;fPeople=new Set();
+    show("done");
+  }catch(e){$("fErr").textContent="⚠️ "+e.message;}
+  finally{$("fSubmit").disabled=false;$("fSubmit").textContent="登録する";}
+};
+$("againBtn").onclick=()=>renderForm();
+$("listBtn").onclick=()=>{ try{liff.openWindow({url:GAS_URL,external:false});}catch(e){location.href=GAS_URL;} };
+$("closeBtn").onclick=()=>{ try{liff.closeWindow();}catch(e){} };
+
+// ===== 起動 =====
+(async()=>{
+  try{
+    await liff.init({liffId:LIFF_ID});
+    if(!liff.isLoggedIn()){liff.login({redirectUri:location.href});return;}
+    try{PROFILE=await liff.getProfile();}catch(e){}
+    DATA=await api("init");
+    setPic();
+    DATA.me?renderForm():renderLink();
+  }catch(e){
+    fail((e&&e.message)||"読み込みに失敗しました。LINEアプリから開き直してください");
+  }
+})();
+</script>
+</body>
+</html>
