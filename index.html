@@ -49,6 +49,22 @@
   .err{color:var(--red);font-size:13px;font-weight:700;text-align:center;min-height:20px;margin-top:8px;white-space:pre-wrap}
   .hint{font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:12px}
 
+
+  /* 日程・繰り返し */
+  .adrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:14px;font-weight:700}
+  .sw{width:50px;height:30px;border-radius:999px;border:0;background:var(--line);position:relative;cursor:pointer;flex:none}
+  .sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .sw.on{background:var(--green)}.sw.on i{left:23px}
+  .dt{display:grid;grid-template-columns:44px minmax(0,1fr) 104px;gap:8px;align-items:center;margin-top:8px}
+  .dt .dl{font-size:12px;font-weight:800;color:var(--sub)}
+  .allday .dt{grid-template-columns:44px minmax(0,1fr)}
+  .allday .tm{display:none}
+  #untilBox .dt{grid-template-columns:64px minmax(0,1fr)}
+  .reps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .reps button{border:2px solid var(--line);background:var(--input);border-radius:10px;padding:10px 0;font-size:14px;font-weight:800;cursor:pointer}
+  .reps button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+  .rpv{margin-top:10px;font-size:13px;font-weight:800;color:var(--green)}
+  .rpv.bad{color:var(--red)}
   .done{background:var(--surface);border-radius:16px;padding:22px 18px;text-align:center}
   .done .big{font-size:40px}
   .done h2{font-size:19px;margin:6px 0 14px}
@@ -80,13 +96,22 @@
   <h1>予定を登録</h1>
   <div class="who"><img id="pic2" alt=""><div><small>登録者（LINEから自動）</small><b id="meName"></b></div></div>
 
-  <div class="field">
+  <div class="field" id="schedField">
     <label>日程<em>必須</em></label>
-    <input type="date" class="inp" id="fDate">
-    <div class="times">
-      <input type="time" class="inp" id="fStart" value="14:00" step="900">
-      <span>〜</span>
-      <input type="time" class="inp" id="fEnd" value="15:00" step="900">
+    <div class="adrow"><span>終日</span><button type="button" class="sw" id="fAllDay" aria-label="終日"><i></i></button></div>
+    <div class="dt"><span class="dl">開始</span><input type="date" class="inp" id="fDate"><input type="time" class="inp tm" id="fStart" value="14:00" step="900"></div>
+    <div class="dt"><span class="dl">終了</span><input type="date" class="inp" id="fEndDate"><input type="time" class="inp tm" id="fEnd" value="15:00" step="900"></div>
+  </div>
+  <div class="field">
+    <label>繰り返し<i>任意</i></label>
+    <div class="reps" id="fRepeat">
+      <button type="button" data-r="none" class="on">なし</button>
+      <button type="button" data-r="weekly">毎週</button>
+      <button type="button" data-r="biweekly">隔週</button>
+    </div>
+    <div id="untilBox" style="display:none">
+      <div class="dt"><span class="dl">いつまで</span><input type="date" class="inp" id="fUntil"></div>
+      <div class="rpv" id="repPrev"></div>
     </div>
   </div>
   <div class="field">
@@ -145,6 +170,86 @@ function fail(msg){$("loadMsg").innerHTML="⚠️ "+esc(msg);show("load");}
 
 let DATA=null, PROFILE=null, fGenre=null, fPeople=new Set();
 
+// ===== 日程（終日・複数日）と繰り返し =====
+const MAX_REPEAT=52;
+let fAllDay=false, fRepeat="none", endTouched=false;
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const parseYmd=s=>{const[Y,M,D]=s.split("-").map(Number);return new Date(Y,M-1,D);};
+const WD=["日","月","火","水","木","金","土"];
+function schedDefaults(){
+  const t=new Date();t.setDate(t.getDate()+1);
+  if(!$("fDate").value) $("fDate").value=ymd(t);
+  if(!$("fEndDate").value) $("fEndDate").value=$("fDate").value;
+}
+function repDates(){
+  const ds=$("fDate").value; if(!ds) return [];
+  const first=parseYmd(ds); if(fRepeat==="none") return [first];
+  const us=$("fUntil").value; if(!us) return [first];
+  const until=parseYmd(us), step=fRepeat==="weekly"?7:14, out=[];
+  for(let d=new Date(first);d<=until&&out.length<=MAX_REPEAT;d.setDate(d.getDate()+step)) out.push(new Date(d));
+  return out;
+}
+function repPreview(){
+  const el=$("repPrev"); if(fRepeat==="none"){el.textContent="";return;}
+  const list=repDates(); if(!$("fUntil").value||!list.length){el.textContent="";return;}
+  const last=list[list.length-1];
+  const over=list.length>MAX_REPEAT;
+  el.classList.toggle("bad",over);
+  el.textContent=over?`⚠️ 最大${MAX_REPEAT}回までです。「いつまで」を短くしてください`
+    :`🔁 ${fRepeat==="weekly"?"毎週":"隔週"}${WD[list[0].getDay()]}曜・全${list.length}回（最終 ${last.getMonth()+1}/${last.getDate()}）`;
+}
+function schedInit(){
+  schedDefaults();
+  $("fAllDay").onclick=()=>{fAllDay=!fAllDay;$("fAllDay").classList.toggle("on",fAllDay);$("schedField").classList.toggle("allday",fAllDay);};
+  $("fDate").addEventListener("change",()=>{
+    if(!endTouched||!$("fEndDate").value||$("fEndDate").value<$("fDate").value) $("fEndDate").value=$("fDate").value;
+    repPreview();
+  });
+  $("fEndDate").addEventListener("change",()=>{endTouched=true;});
+  $("fRepeat").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    fRepeat=b.dataset.r;
+    $("fRepeat").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+    $("untilBox").style.display=fRepeat==="none"?"none":"";
+    if(fRepeat!=="none"&&!$("fUntil").value&&$("fDate").value){const u=parseYmd($("fDate").value);u.setMonth(u.getMonth()+3);$("fUntil").value=ymd(u);}
+    repPreview();
+  });
+  $("fUntil").addEventListener("change",repPreview);
+}
+function schedValues(){
+  const date=$("fDate").value;
+  return {date,endDate:$("fEndDate").value||date,start:$("fStart").value,end:$("fEnd").value,
+    allDay:fAllDay,repeat:fRepeat,until:fRepeat==="none"?"":$("fUntil").value};
+}
+function schedCheck(f){
+  if(!f.date) return "「日程」を入力してください";
+  if(f.endDate<f.date) return "終了日は開始日と同じか、後の日にしてください";
+  if(!f.allDay){
+    if(!f.start||!f.end) return "時間を入力してください";
+    if(f.endDate===f.date&&f.end<=f.start) return "終了時間は開始時間より後にしてください";
+  }
+  if(f.repeat!=="none"){
+    if(!f.until) return "繰り返しの「いつまで」を入力してください";
+    if(f.until<f.date) return "「いつまで」は開始日より後にしてください";
+    if(repDates().length>MAX_REPEAT) return `繰り返しは最大${MAX_REPEAT}回までです`;
+  }
+  return "";
+}
+function schedReset(){
+  fRepeat="none";endTouched=false;fAllDay=false;$("fAllDay").classList.remove("on");$("schedField").classList.remove("allday");
+  $("fRepeat").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x.dataset.r==="none"));
+  $("untilBox").style.display="none";$("fUntil").value="";repPreview();
+  $("fEndDate").value=$("fDate").value;
+}
+// 表示用：「14:00〜15:00」「終日」「10/5〜10/7 終日」など
+function schedLabel(f){
+  const s=parseYmd(f.date),e=parseYmd(f.endDate||f.date),md=d=>`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
+  const multi=f.endDate&&f.endDate!==f.date;
+  if(f.allDay) return multi?`${md(s)}〜${md(e)} 終日`:`${md(s)} 終日`;
+  return multi?`${md(s)} ${f.start}〜${md(e)} ${f.end}`:`${md(s)} ${f.start}〜${f.end}`;
+}
+
+schedInit();
+
 // Apps Script に送る（本人確認用のIDトークンを毎回付ける）
 async function api(action,extra){
   const idToken=liff.getIDToken();
@@ -181,7 +286,7 @@ $("linkBtn").onclick=async()=>{
 // ===== 予定フォーム =====
 function renderForm(){
   $("meName").textContent=DATA.me.name;
-  if(!$("fDate").value){const t=new Date();t.setDate(t.getDate()+1);$("fDate").value=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;}
+  schedDefaults();
   const cur=$("fTeam").value;
   $("fTeam").innerHTML=`<option value="">選んでください</option>`+DATA.teams.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
   if([...$("fTeam").options].some(o=>o.value===cur)) $("fTeam").value=cur;
@@ -198,23 +303,23 @@ function renderPeople(){
   $("fPeople").querySelectorAll(".pbtn").forEach(b=>b.onclick=()=>{const id=b.dataset.id;fPeople.has(id)?fPeople.delete(id):fPeople.add(id);renderPeople();});
 }
 $("fSubmit").onclick=async()=>{
-  const f={date:$("fDate").value,start:$("fStart").value,end:$("fEnd").value,title:$("fTitle").value.trim(),
+  const f={...schedValues(),title:$("fTitle").value.trim(),
     team:$("fTeam").value,cat:fGenre,people:[...fPeople],place:$("fPlace").value.trim(),memo:$("fMemo").value.trim()};
-  const miss=[!f.date&&"日程",!f.title&&"タイトル",!f.team&&"チーム",!f.cat&&"ジャンル"].filter(Boolean);
+  const miss=[!f.title&&"タイトル",!f.team&&"チーム",!f.cat&&"ジャンル"].filter(Boolean);
   if(miss.length){$("fErr").textContent=`「${miss.join("」「")}」を入力してください`;return;}
-  if(!f.start||!f.end||f.end<=f.start){$("fErr").textContent="終了時間は開始時間より後にしてください";return;}
+  const sErr=schedCheck(f); if(sErr){$("fErr").textContent=sErr;return;}
   $("fErr").textContent="";$("fSubmit").disabled=true;$("fSubmit").textContent="登録中…";
   try{
     const r=await api("save",{form:f});
-    const [Y,M,D]=f.date.split("-").map(Number);const wd=W[new Date(Y,M-1,D).getDay()];
     const g=DATA.genres.find(x=>x.key===f.cat)||{label:"",color:"#06c755"};
     const team=DATA.teams.find(t=>t.id===f.team)?.name||"";
     const ppl=f.people.map(id=>DATA.people.find(p=>p.id===id)?.name).filter(Boolean);
     $("doneCard").style.borderLeftColor=g.color;
-    $("doneCard").innerHTML=`📅 ${M}/${D}（${wd}）${esc(f.start)}〜${esc(f.end)}<br><b>${esc(f.title)}</b><br>
+    const rep=f.repeat!=="none"?`<br>🔁 ${f.repeat==="weekly"?"毎週":"隔週"}・全${r.count}回（〜${esc(f.until.replace(/^\d+-0?(\d+)-0?(\d+)$/,"$1/$2"))}）`:"";
+    $("doneCard").innerHTML=`📅 ${esc(schedLabel(f))}${rep}<br><b>${esc(f.title)}</b><br>
       🏷️ ${esc(g.label)}　👥 ${esc(team)}${f.place?`<br>📍 ${esc(f.place)}`:""}${ppl.length?`<br>👤 ${esc(ppl.join("・"))}`:""}`;
     $("doneWarn").textContent=r&&r.warn?("⚠️ "+r.warn):"";
-    $("fTitle").value="";$("fPlace").value="";$("fMemo").value="";fGenre=null;fPeople=new Set();
+    $("fTitle").value="";$("fPlace").value="";$("fMemo").value="";fGenre=null;fPeople=new Set();schedReset();
     show("done");
   }catch(e){$("fErr").textContent="⚠️ "+e.message;}
   finally{$("fSubmit").disabled=false;$("fSubmit").textContent="登録する";}
