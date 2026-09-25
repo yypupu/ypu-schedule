@@ -83,6 +83,9 @@
   .sb.yes{border-color:var(--green);background:var(--green);color:#fff}
   .sb.no,.sb.del{border-color:var(--red);color:var(--red)}
   .sb.no.on{background:var(--red);color:#fff}
+  .wl{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px}
+  .wl .wr{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px}
+  .wl b{font-size:13px}
   .empty{font-size:13px;color:var(--sub);background:var(--surface);border-radius:14px;padding:14px;opacity:.8}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:center;z-index:50}
   .modal.on{display:flex}
@@ -468,6 +471,7 @@ function mcard(e,kind){
     <div class="tm">${esc(evLabel(e))}${e.series?" 🔁":""}</div>
     <div class="tt">${esc(e.title)}</div>
     <div class="mt">🏷️ ${esc(g.label)}　👥 ${esc(team)}${e.place?`　📍 ${esc(e.place)}`:""}</div>
+    ${kind==="mine"&&(e.wants||[]).length?`<div class="wl">🙋 <b>参加希望 ${e.wants.length}人</b>（OKすると担当者になります）${e.wants.map(p=>`<div class="wr"><b>${esc(DATA.people.find(x=>x.id===p)?.name||p)}</b><span><button class="sb yes" data-decide="${esc(e.id)}" data-p="${esc(p)}" data-ok="1">OK</button> <button class="sb" data-decide="${esc(e.id)}" data-p="${esc(p)}" data-ok="0">見送り</button></span></div>`).join("")}</div>`:""}
     <div class="ac">${acts}</div></div></div>`;
 }
 function renderMine(){
@@ -479,6 +483,11 @@ function renderMine(){
     b.disabled=true;
     try{const r=await api("rsvp",{id:e.id,value:v});e.rsvp=r.rsvp;MINE.mine.concat(MINE.assigned).filter(x=>x.id===e.id).forEach(x=>x.rsvp=r.rsvp);renderMine();}
     catch(err){alert(err.message);}
+  });
+  document.querySelectorAll("[data-decide]").forEach(b=>b.onclick=async()=>{
+    const ok=b.dataset.ok==="1";b.disabled=true;
+    try{await api("decide",{id:b.dataset.decide,personId:b.dataset.p,ok});await loadMine();}
+    catch(err){alert(err.message);b.disabled=false;}
   });
   document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>openForm(find(b.dataset.copy),"copy"));
   document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=async()=>{
