@@ -319,6 +319,19 @@ $("fSubmit").onclick=async()=>{
     $("doneCard").innerHTML=`📅 ${esc(schedLabel(f))}${rep}<br><b>${esc(f.title)}</b><br>
       🏷️ ${esc(g.label)}　👥 ${esc(team)}${f.place?`<br>📍 ${esc(f.place)}`:""}${ppl.length?`<br>👤 ${esc(ppl.join("・"))}`:""}`;
     $("doneWarn").textContent=r&&r.warn?("⚠️ "+r.warn):"";
+
+    // 開いたトーク（公式アカウントとのトーク／グループ）に登録内容を送る（通数はかからない）
+    try{
+      const ctx=liff.getContext();
+      if(ctx&&["utou","group","room","square_chat"].includes(ctx.type)){
+        const lines=["📅 予定を登録しました","",schedLabel(f)];
+        if(f.repeat!=="none") lines.push(`🔁 ${f.repeat==="weekly"?"毎週":"隔週"}・全${r.count}回`);
+        lines.push(`【${g.label}】${f.title}`,`👥 ${team}`);
+        if(f.place) lines.push(`📍 ${f.place}`);
+        if(ppl.length) lines.push(`👤 ${ppl.join("・")}`);
+        await liff.sendMessages([{type:"text",text:lines.join("\n")}]);
+      }
+    }catch(e){ /* トークの外で開いたときなどは送らない */ }
     $("fTitle").value="";$("fPlace").value="";$("fMemo").value="";fGenre=null;fPeople=new Set();schedReset();
     show("done");
   }catch(e){$("fErr").textContent="⚠️ "+e.message;}
